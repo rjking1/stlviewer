@@ -175,9 +175,6 @@
 </script>
 
 <style>
-  .canvas-container {
-    height: 500px;
-  }
   canvas {
     width: 100%;
     height: 100%;
@@ -186,34 +183,8 @@
 
 <section class="mt-4 overflow-hidden text-gray-600 body-font">
   <div class="mx-auto">
-    <div class="flex flex-wrap mx-auto">
+    <div xclass="flex flex-wrap mx-auto">
       <div class="w-full mb-6 lg:w-1/2 lg:pr-10 lg:pb-6 lg:mb-0">
-        <h2 class="text-sm tracking-widest text-gray-500 uppercase title-font">
-          3DAddict
-        </h2>
-        <h1 class="mb-4 text-3xl font-medium text-gray-900 title-font">
-          Calculate STL Price
-        </h1>
-        <div class="flex py-2 border-t border-gray-200">
-          <span class="text-gray-500">Material</span>
-          <span class="ml-auto text-gray-900">PLA</span>
-        </div>
-        <div class="flex justify-between py-2 border-t border-gray-200">
-          <span class="text-gray-500">Color</span>
-          <div class="">
-            <button
-              class="w-6 h-6 bg-yellow-600 border-2 border-gray-300 rounded-full focus:outline-none" />
-            <button
-              class="w-6 h-6 ml-1 bg-blue-700 border-2 border-gray-300 rounded-full focus:outline-none" />
-            <button
-              class="w-6 h-6 ml-1 bg-indigo-500 border-2 border-gray-300 rounded-full focus:outline-none" />
-          </div>
-        </div>
-        <div class="flex py-2 mb-6 border-t border-b border-gray-200">
-          <span class="text-gray-500">Layer Height</span>
-          <span class="ml-auto text-gray-900">0.2</span>
-        </div>
-
         <div
           class="flex flex-col items-end w-full mx-auto space-y-4 sm:flex-row">
           <div class="relative flex-grow w-full">
@@ -232,41 +203,9 @@
             reset
           </button>
         </div>
-        <div class="flex flex-col items-start my-6">
-          <div class="flex-grow">
-            <h2 class="mb-1 text-lg font-medium text-gray-900 title-font">
-              Stats
-            </h2>
-            <p class="text-base leading-relaxed">
-              Size: {stlSize.x.toFixed(2)} x {stlSize.y.toFixed(2)} x {stlSize.z.toFixed(2)}
-              mm
-            </p>
-            <p class="text-base leading-relaxed">
-              Volume: {stlVolume.toFixed(2)} cm3
-            </p>
-          </div>
-        </div>
-        <div class="text-gray-600 body-font">
-  <table class="w-full text-left whitespace-no-wrap table-auto">
-    <thead>
-      <tr>
-        <th class="px-4 py-3 text-sm font-medium tracking-wider text-gray-900 bg-gray-100 rounded-tl rounded-bl title-font">Est. Cost</th>
-        <th class="px-4 py-3 text-sm font-medium tracking-wider text-gray-900 bg-gray-100 title-font">Total Price</th>
-        <th class="px-4 py-3 text-sm font-medium tracking-wider text-gray-900 bg-gray-100 title-font">Profit</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td class="px-4 py-3">$0.40</td>
-        <td class="px-4 py-3">$15.68</td>
-        <td class="px-4 py-3">$15.28</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
       </div>
       <div
-        class="object-cover object-center w-full canvas-container lg:w-1/2 lg:h-auto">
+        xclass="object-cover object-center w-full canvas-container lg:w-1/2 lg:h-auto">
         <canvas class="rounded" />
       </div>
     </div>

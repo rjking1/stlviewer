@@ -5,7 +5,7 @@
 
 
 <main>
-  <h1 class="">3D Printing Price Cost Calculator Tool</h1>
+  <h1 class="">STL 3D Model viewer</h1>
   <div class="main-container">
     <Canvas />
   </div>
