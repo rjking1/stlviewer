@@ -1,8 +1,11 @@
 <script>
   import { onMount } from "svelte";
-  import fetch from 'node-fetch';
+  import { PYBASE_DB_PREFIX, PYBASE_DSQL_URL } from "../../../common/config.js";
+  import { doFetch } from "../../../common/dbutils.js";
+  import fetch from "node-fetch";
   import * as THREE from "three";
   import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+  import { STLExporter } from "three/examples/js/exporters/STLExporter.js";
   import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
   let stlFile, fileinput;
@@ -18,7 +21,7 @@
 
   onMount(() => {
     const renderer = new THREE.WebGLRenderer({
-      canvas: document.querySelector("canvas")
+      canvas: document.querySelector("canvas"),
     });
 
     // There's no reason to set the aspect here because we're going
@@ -33,7 +36,7 @@
       color: 0x555555,
       specular: 0xffffff,
       shininess: 50,
-      shading: THREE.SmoothShading
+      shading: THREE.SmoothShading,
     });
 
     // Add controls, targetting the same DOM element
@@ -48,7 +51,7 @@
       new THREE.PlaneBufferGeometry(500, 500),
       new THREE.MeshPhongMaterial({
         color: 0x999999,
-        specular: 0x101010
+        specular: 0x101010,
       })
     );
     plane.rotation.x = -90 * degree;
@@ -79,7 +82,7 @@
     }
 
     // Create an animate function, which will allow you to render your scene and define any movements
-    const animate = function() {
+    const animate = function () {
       requestAnimationFrame(animate);
       renderer.render(scene, camera);
       resizeCanvasToDisplaySize();
@@ -88,26 +91,26 @@
   });
 
   // https://stackoverflow.com/questions/13853301/why-doesnt-filereader-pass-file-to-loader-load-used-by-three-js-scene
-  const onFileSelected = e => {
+  const onFileSelected = (e) => {
     let reader = new FileReader();
     let fileObject = e.target.files[0];
 
-    reader.onload = function() {
-      var loader = new STLLoader();
+    reader.onload = function () {
+      let loader = new STLLoader();
       //console.log(this.result);
-      var geometry = loader.parse(this.result);
+      let geometry = loader.parse(this.result);
       //get stil volume
       getSize(geometry);
       getVolume(geometry);
 
-      var material = new THREE.MeshPhongMaterial({
+      let material = new THREE.MeshPhongMaterial({
         ambient: 0xff5533,
         color: 0xff5533,
         specular: 0x111111,
-        shininess: 200
+        shininess: 200,
       });
 
-      var mesh = new THREE.Mesh(geometry, material);
+      let mesh = new THREE.Mesh(geometry, material);
       mesh.name = "loadedMeshObject";
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -172,7 +175,124 @@
     clearFileInput(fileinput);
   }
 
+  function loadBlob(blob) {
+    let loader = new STLLoader();
+    let geometry = loader.parse(blob);
+    //get stil volume
+    getSize(geometry);
+    getVolume(geometry);
+
+    let material = new THREE.MeshPhongMaterial({
+      ambient: 0xff5533,
+      color: 0xff5533,
+      specular: 0x111111,
+      shininess: 200,
+    });
+
+    let mesh = new THREE.Mesh(geometry, material);
+    mesh.name = "loadedMeshObject";
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    // model offset
+    mesh.position.set(0, 0, 0);
+    // modal orientation on load
+    mesh.rotation.x = THREE.Math.degToRad(-90);
+    mesh.rotation.z = THREE.Math.degToRad(-25);
+    // Add loaded model to scene
+    scene.add(mesh);
+  }
+
+  export async function loadBlocksFromDB(name) {
+    const dbN = { db: PYBASE_DB_PREFIX + "stl", server: PYBASE_DSQL_URL };
+
+    let row = await doFetch(
+      dbN,
+      "select data from stl where name='" + name + "'"
+    );
+    let blob = row[0]["data"];
+    loadBlob(blob);
+  }
+
+  export async function saveBlocksToDB(name, blob) {
+    if (name !== "") {
+      // text = text.replace(/'/g, "''");
+      const dbN = { db: PYBASE_DB_PREFIX + "stl", server: PYBASE_DSQL_URL };
+      let sql =
+        "replace into stl (name, data) values ('" + name + "','" + blob + "')";
+      let res = await doFetch(dbN, sql);
+    }
+  }
+
+  // export async function deleteBlocksFromDB(name) {
+  //   if (name !== "") {
+  //     let sql =
+  //       "delete from kv where user='richard' and project='blox' and name='" +
+  //       name +
+  //       "'";
+  //     let res = await doFetch($dbN, sql);
+  //   }
+  // }
+
+  async function loadSceneFromDB() {
+    await loadBlocksFromDB("propeller");
+  }
+
+  async function saveSceneToDB() {
+    let exporter = new STLExporter();
+    let stlString = exporter.parse(scene);
+    console.log(stlString);
+    // let blob = new Blob([stlString], {type: 'text/plain'});
+    await saveBlocksToDB("test", stlString);
+  }
 </script>
+
+<section class="mt-4 overflow-hidden text-gray-600 body-font">
+  <div class="mx-auto">
+    <div xclass="flex flex-wrap mx-auto">
+      <div class="w-full mb-6 lg:w-1/2 lg:pr-10 lg:pb-6 lg:mb-0">
+        <div
+          class="flex flex-col items-end w-full mx-auto space-y-4 sm:flex-row"
+        >
+          <div class="relative flex-grow w-full">
+            <label for="full-name" class="text-sm leading-7 text-gray-600">
+              Upload Stl File
+            </label>
+            <input
+              type="file"
+              on:change={(e) => onFileSelected(e)}
+              bind:this={fileinput}
+              class="w-full px-3 py-1 text-base leading-8 text-gray-700 transition-colors duration-200 ease-in-out bg-gray-100 bg-opacity-50 border border-gray-300 rounded outline-none focus:border-indigo-500 focus:bg-transparent focus:ring-2 focus:ring-indigo-200"
+            />
+          </div>
+          <button
+            class="w-full h-12 px-8 py-2 text-white uppercase bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
+            on:click={resetScene}
+          >
+            reset
+          </button>
+          <button
+            class="w-full h-12 px-8 py-2 text-white uppercase bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
+            on:click={loadSceneFromDB}
+          >
+            load
+          </button>
+          <button
+            class="w-full h-12 px-8 py-2 text-white uppercase bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
+            on:click={saveSceneToDB}
+          >
+            save
+          </button>
+        </div>
+      </div>
+      <div
+        xclass="object-cover object-center w-full canvas-container lg:w-1/2 lg:h-auto"
+      >
+        <canvas class="rounded" />
+      </div>
+    </div>
+  </div>
+</section>
 
 <style>
   canvas {
@@ -180,34 +300,3 @@
     height: 100%;
   }
 </style>
-
-<section class="mt-4 overflow-hidden text-gray-600 body-font">
-  <div class="mx-auto">
-    <div xclass="flex flex-wrap mx-auto">
-      <div class="w-full mb-6 lg:w-1/2 lg:pr-10 lg:pb-6 lg:mb-0">
-        <div
-          class="flex flex-col items-end w-full mx-auto space-y-4 sm:flex-row">
-          <div class="relative flex-grow w-full">
-            <label for="full-name" class="text-sm leading-7 text-gray-600">
-              Upload Stl File
-            </label>
-            <input
-              type="file"
-              on:change={e => onFileSelected(e)}
-              bind:this={fileinput}
-              class="w-full px-3 py-1 text-base leading-8 text-gray-700 transition-colors duration-200 ease-in-out bg-gray-100 bg-opacity-50 border border-gray-300 rounded outline-none focus:border-indigo-500 focus:bg-transparent focus:ring-2 focus:ring-indigo-200" />
-          </div>
-          <button
-            class="w-full h-12 px-8 py-2 text-white uppercase bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
-            on:click={resetScene}>
-            reset
-          </button>
-        </div>
-      </div>
-      <div
-        xclass="object-cover object-center w-full canvas-container lg:w-1/2 lg:h-auto">
-        <canvas class="rounded" />
-      </div>
-    </div>
-  </div>
-</section>
