@@ -8,7 +8,7 @@
   import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
   import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
-  let files = [];
+  $: files = [];
   let file_name = "propeller";
   let save_name = "propeller";
   $: loaded_names = [];
@@ -28,7 +28,10 @@
   onMount(async () => {
     const dbN = { db: PYBASE_DB_PREFIX + "stl", server: PYBASE_DSQL_URL };
 
-    files = await doFetch(dbN, "select name from stl order by name");
+    const files_list = await doFetch(dbN, "select name from stl order by name");
+    for (let file of files_list) {
+      files = [...files, file.name];
+    }
 
     const renderer = new THREE.WebGLRenderer({
       canvas: document.querySelector("canvas"),
@@ -221,7 +224,7 @@
     loaded_names = [...loaded_names, mesh.name];
   }
 
-  export async function loadBlocksFromDB(name) {
+  async function loadBlocksFromDB(name) {
     const dbN = { db: PYBASE_DB_PREFIX + "stl", server: PYBASE_DSQL_URL };
 
     let row = await doFetch(
@@ -232,7 +235,7 @@
     loadBlob(name, blob);
   }
 
-  export async function saveBlocksToDB(name, blob) {
+  async function saveBlocksToDB(name, blob) {
     console.log(name);
     if (name !== "") {
       blob = blob.replace(/'/g, "''");
@@ -243,15 +246,13 @@
     }
   }
 
-  // export async function deleteBlocksFromDB(name) {
-  //   if (name !== "") {
-  //     let sql =
-  //       "delete from kv where user='richard' and project='blox' and name='" +
-  //       name +
-  //       "'";
-  //     let res = await doFetch($dbN, sql);
-  //   }
-  // }
+  async function deleteBlocksFromDB(name) {
+    if (name !== "") {
+      const dbN = { db: PYBASE_DB_PREFIX + "stl", server: PYBASE_DSQL_URL };
+      let sql = "delete from stl where name='" + name + "'";
+      await doFetch(dbN, sql);
+    }
+  }
 
   async function loadSceneFromDB() {
     await loadBlocksFromDB(file_name);
@@ -261,8 +262,21 @@
   async function saveSceneToDB() {
     let exporter = new STLExporter();
     let stlString = exporter.parse(scene);
-    console.log(stlString);
+    // console.log(stlString);
     await saveBlocksToDB(save_name, stlString);
+
+    if (files.indexOf(save_name) < 0) {
+      files = [...files, save_name];
+    }
+  }
+
+  async function deleteSceneFromDB() {
+    await deleteBlocksFromDB(file_name);
+    const index = files.indexOf(file_name);
+    if (index > -1) {
+      files.splice(index, 1); // 2nd parameter means remove one item only
+      files = files;
+    }
   }
 </script>
 
@@ -274,15 +288,15 @@
           class="flex flex-col items-end w-full mx-auto space-y-4 sm:flex-row"
         >
           <div class="relative flex-grow w-full">
-            DB:<nbsp />
+            Database:<nbsp />
             <select
               id="id_file_name"
               class="py-2  text-white  bg-indigo-500 "
               bind:value={file_name}
             >
               {#each files as file}
-                <option value={file.name} selected={file.name === file_name}
-                  >{file.name}</option
+                <option value={file} selected={file === file_name}
+                  >{file}</option
                 >
               {/each}
             </select>
@@ -295,15 +309,34 @@
             </button>
 
             <button
+              class="w-full h-12 px-8 py-2 text-white bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
+              on:click={deleteSceneFromDB}
+            >
+              Delete
+            </button>
+
+            <button
               class="w-full h-12 px-8 py-2 text-white  bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
               on:click={saveSceneToDB}
             >
               Save As
             </button>
 
-            <input value={save_name} />
+            <input bind:value={save_name} />
 
-            Objects:<nbsp />
+            <br />
+            <label for="full-name" class="text-sm leading-7 text-gray-600">
+              Upload Stl File
+            </label>
+            <input
+              type="file"
+              on:change={(e) => onFileSelected(e)}
+              bind:this={fileinput}
+              class="w-full px-3 py-1 text-base leading-8 text-gray-700 transition-colors duration-200 ease-in-out bg-gray-100 bg-opacity-50 border border-gray-300 rounded outline-none focus:border-indigo-500 focus:bg-transparent focus:ring-2 focus:ring-indigo-200"
+            />
+
+            <p />
+            Objects in scene:<nbsp />
             <select
               id="id_object_name"
               class="py-2  text-white  bg-indigo-500 "
@@ -320,17 +353,6 @@
             >
               Clear
             </button>
-
-            <br />
-            <label for="full-name" class="text-sm leading-7 text-gray-600">
-              Upload Stl File
-            </label>
-            <input
-              type="file"
-              on:change={(e) => onFileSelected(e)}
-              bind:this={fileinput}
-              class="w-full px-3 py-1 text-base leading-8 text-gray-700 transition-colors duration-200 ease-in-out bg-gray-100 bg-opacity-50 border border-gray-300 rounded outline-none focus:border-indigo-500 focus:bg-transparent focus:ring-2 focus:ring-indigo-200"
-            />
           </div>
         </div>
       </div>
