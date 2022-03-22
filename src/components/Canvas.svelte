@@ -5,10 +5,16 @@
   import fetch from "node-fetch";
   import * as THREE from "three";
   import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
-  import { STLExporter } from "three/examples/js/exporters/STLExporter.js";
+  import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
   import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
-  let stlFile, fileinput;
+  let files = [];
+  let file_name = "propeller";
+  let save_name = "propeller";
+  $: loaded_names = [];
+  let loaded_name = "";
+
+  let fileinput;
   let stlSize = { x: 0, y: 0, z: 0 };
   let stlVolume = 0.0;
 
@@ -19,7 +25,11 @@
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x282c34);
 
-  onMount(() => {
+  onMount(async () => {
+    const dbN = { db: PYBASE_DB_PREFIX + "stl", server: PYBASE_DSQL_URL };
+
+    files = await doFetch(dbN, "select name from stl order by name");
+
     const renderer = new THREE.WebGLRenderer({
       canvas: document.querySelector("canvas"),
     });
@@ -111,7 +121,7 @@
       });
 
       let mesh = new THREE.Mesh(geometry, material);
-      mesh.name = "loadedMeshObject";
+      mesh.name = fileObject.name; //"loadedMeshObject";
       mesh.castShadow = true;
       mesh.receiveShadow = true;
 
@@ -122,9 +132,10 @@
       mesh.rotation.z = THREE.Math.degToRad(-25);
       // Add loaded model to scene
       scene.add(mesh);
+      loaded_names = [...loaded_names, mesh.name];
     };
     reader.readAsArrayBuffer(fileObject);
-    //console.log("File Object:", fileObject);
+    save_name = fileObject.name;
   };
 
   function getSize(geometry) {
@@ -168,14 +179,20 @@
 
   // Rest the Scene and clear file
   function resetScene() {
-    const object = scene.getObjectByName("loadedMeshObject");
+    const object = scene.getObjectByName(loaded_name);
     stlSize = { x: 0, y: 0, z: 0 };
     stlVolume = 0.0;
     scene.remove(object);
     clearFileInput(fileinput);
+
+    const index = loaded_names.indexOf(loaded_name);
+    if (index > -1) {
+      loaded_names.splice(index, 1); // 2nd parameter means remove one item only
+      loaded_names = loaded_names;
+    }
   }
 
-  function loadBlob(blob) {
+  function loadBlob(name, blob) {
     let loader = new STLLoader();
     let geometry = loader.parse(blob);
     //get stil volume
@@ -190,7 +207,7 @@
     });
 
     let mesh = new THREE.Mesh(geometry, material);
-    mesh.name = "loadedMeshObject";
+    mesh.name = name; //"loadedMeshObject";
     mesh.castShadow = true;
     mesh.receiveShadow = true;
 
@@ -201,6 +218,7 @@
     mesh.rotation.z = THREE.Math.degToRad(-25);
     // Add loaded model to scene
     scene.add(mesh);
+    loaded_names = [...loaded_names, mesh.name];
   }
 
   export async function loadBlocksFromDB(name) {
@@ -211,16 +229,17 @@
       "select data from stl where name='" + name + "'"
     );
     let blob = row[0]["data"];
-    loadBlob(blob);
+    loadBlob(name, blob);
   }
 
   export async function saveBlocksToDB(name, blob) {
+    console.log(name);
     if (name !== "") {
-      // text = text.replace(/'/g, "''");
+      blob = blob.replace(/'/g, "''");
       const dbN = { db: PYBASE_DB_PREFIX + "stl", server: PYBASE_DSQL_URL };
       let sql =
         "replace into stl (name, data) values ('" + name + "','" + blob + "')";
-      let res = await doFetch(dbN, sql);
+      await doFetch(dbN, sql);
     }
   }
 
@@ -235,15 +254,15 @@
   // }
 
   async function loadSceneFromDB() {
-    await loadBlocksFromDB("propeller");
+    await loadBlocksFromDB(file_name);
+    save_name = file_name;
   }
 
   async function saveSceneToDB() {
     let exporter = new STLExporter();
     let stlString = exporter.parse(scene);
     console.log(stlString);
-    // let blob = new Blob([stlString], {type: 'text/plain'});
-    await saveBlocksToDB("test", stlString);
+    await saveBlocksToDB(save_name, stlString);
   }
 </script>
 
@@ -255,6 +274,54 @@
           class="flex flex-col items-end w-full mx-auto space-y-4 sm:flex-row"
         >
           <div class="relative flex-grow w-full">
+            DB:<nbsp />
+            <select
+              id="id_file_name"
+              class="py-2  text-white  bg-indigo-500 "
+              bind:value={file_name}
+            >
+              {#each files as file}
+                <option value={file.name} selected={file.name === file_name}
+                  >{file.name}</option
+                >
+              {/each}
+            </select>
+
+            <button
+              class="w-full h-12 px-8 py-2 text-white  bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
+              on:click={loadSceneFromDB}
+            >
+              Load
+            </button>
+
+            <button
+              class="w-full h-12 px-8 py-2 text-white  bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
+              on:click={saveSceneToDB}
+            >
+              Save As
+            </button>
+
+            <input value={save_name} />
+
+            Objects:<nbsp />
+            <select
+              id="id_object_name"
+              class="py-2  text-white  bg-indigo-500 "
+              bind:value={loaded_name}
+            >
+              {#each loaded_names as loaded_name}
+                <option value={loaded_name}>{loaded_name}</option>
+              {/each}
+            </select>
+
+            <button
+              class="w-full h-12 px-8 py-2 text-white bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
+              on:click={resetScene}
+            >
+              Clear
+            </button>
+
+            <br />
             <label for="full-name" class="text-sm leading-7 text-gray-600">
               Upload Stl File
             </label>
@@ -265,24 +332,6 @@
               class="w-full px-3 py-1 text-base leading-8 text-gray-700 transition-colors duration-200 ease-in-out bg-gray-100 bg-opacity-50 border border-gray-300 rounded outline-none focus:border-indigo-500 focus:bg-transparent focus:ring-2 focus:ring-indigo-200"
             />
           </div>
-          <button
-            class="w-full h-12 px-8 py-2 text-white uppercase bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
-            on:click={resetScene}
-          >
-            reset
-          </button>
-          <button
-            class="w-full h-12 px-8 py-2 text-white uppercase bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
-            on:click={loadSceneFromDB}
-          >
-            load
-          </button>
-          <button
-            class="w-full h-12 px-8 py-2 text-white uppercase bg-indigo-500 border-0 rounded focus:outline-none hover:bg-indigo-600 md:w-auto"
-            on:click={saveSceneToDB}
-          >
-            save
-          </button>
         </div>
       </div>
       <div
